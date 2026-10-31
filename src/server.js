@@ -1,7 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import QRCode from 'qrcode';
 import oidc from 'express-openid-connect';
+import { auth as jwtAuth, requiredScopes } from 'express-oauth2-jwt-bearer';
 import pool, { initDb } from './db.js';
 
 const { auth: oidcAuth, requiresAuth } = oidc;
@@ -26,6 +29,11 @@ app.use(
     secret: process.env.SESSION_SECRET,
   })
 );
+
+const checkJwt = jwtAuth({
+  audience: process.env.API_AUDIENCE,
+  issuerBaseURL: process.env.AUTH0_ISSUER_URL,
+});
 
 function toJson(row) {
   return {
@@ -76,6 +84,34 @@ app.post('/admin/passes/:id/delete', requiresAuth(), async (req, res, next) => {
   try {
     await pool.query('DELETE FROM passes WHERE id = $1', [req.params.id]);
     res.redirect('/');
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/passes/:id', checkJwt, requiredScopes('read:passes'), async (req, res, next) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM passes WHERE id = $1', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Pass not found' });
+    res.json(toJson(rows[0]));
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/passes', checkJwt, requiredScopes('create:passes'), async (req, res, next) => {
+  try {
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const document = typeof req.body?.document === 'string' ? req.body.document.trim() : '';
+    if (!name || !document) {
+      return res.status(400).json({ error: 'name and document are required' });
+    }
+
+    const id = randomUUID();
+    await pool.query('INSERT INTO passes (id, name, document) VALUES ($1, $2, $3)', [id, name, document]);
+
+    const png = await QRCode.toBuffer(`${baseURL}/info/${id}`);
+    res.status(201).location(`${baseURL}/passes/${id}`).type('image/png').send(png);
   } catch (err) {
     next(err);
   }
