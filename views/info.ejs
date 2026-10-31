@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="hr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Propusnica</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+    .ACTIVE { color: green; } .CANCELLED { color: red; }
+  </style>
+</head>
+<body>
+  <% if (!pass) { %>
+    <h1>404 - Propusnica ne postoji</h1>
+  <% } else { %>
+    <h1>Propusnica</h1>
+    <p>Status: <strong class="<%= pass.status %>"><%= pass.status %></strong></p>
+    <p>Ime i prezime: <%= pass.name %></p>
+    <p>Dokument: <%= pass.document %></p>
+    <p>Vrijeme izdavanja: <%= pass.issuedAt %></p>
+  <% } %>
+  <p><a href="/">Početna</a></p>
+</body>
+</html>
